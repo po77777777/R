@@ -8,3 +8,124 @@ plot(lm.pred)
 pred.lm <- as.vector(pred.lm)
 
 csv.function(pred.lm,name="lm.csv")
+
+
+subset method
+
+
+best.subset <- regsubsets(log(SalePrice)~.,data=train1,nvmax=3,really.big=TRUE)
+best.summary <- summary(best.subset)
+
+par(mfrow=c(2,2))
+
+# RSS plot
+plot(best.summary$rss ,xlab="Number of Variables ", ylab="RSS", type="l")
+
+# adjr2 plot
+adjr2.best <- which.max(best.summary$adjr2)
+plot(best.summary$adjr2 ,xlab="Number of Variables ", ylab="Adjusted RSq", type="l")
+points(adjr2.best,best.summary$adjr2[adjr2.best], col = "red", cex = 2, pch = 20)
+
+pred.best <- exp(predict.regsubsets(best.subset,test1,id=adjr2.best))
+csv.function(pred.best,name="best.csv")
+
+# Cp plot
+cp.best <- which.min(best.summary$cp)
+plot(best.summary$cp ,xlab="Number of Variables ", ylab="Cp", type="l")
+points(cp.best,best.summary$cp[cp.best], col = "red", cex = 2, pch = 20)
+
+# BIC plot
+bic.best <- which.min(best.summary$bic)
+plot(best.summary$bic ,xlab="Number of Variables ", ylab="BIC", type="l")
+points(bic.best,best.summary$bic[bic.best], col = "red", cex = 2, pch = 20)
+
+```
+
+#### forward subset
+
+```{r forward}
+forward.subset <- regsubsets(log(SalePrice)~.,data=train1,nvmax=200,method="forward",really.big=TRUE)
+for.summary <- summary(forward.subset)
+
+par(mfrow=c(2,2))
+
+# RSS plot
+plot(for.summary$rss ,xlab="Number of Variables ", ylab="RSS", type="l")
+
+# adjr2 plot
+adjr2.for <- which.max(for.summary$adjr2)
+plot(for.summary$adjr2 ,xlab="Number of Variables ", ylab="Adjusted RSq", type="l")
+points(adjr2.for,for.summary$adjr2[adjr2.for], col = "red", cex = 2, pch = 20)
+
+# Cp plot
+cp.for <- which.min(for.summary$cp)
+plot(for.summary$cp ,xlab="Number of Variables ", ylab="Cp", type="l")
+points(cp.for,for.summary$cp[cp.for], col = "red", cex = 2, pch = 20)
+
+# BIC plot
+bic.for <- which.min(for.summary$bic)
+plot(for.summary$bic ,xlab="Number of Variables ", ylab="BIC", type="l")
+points(bic.for,for.summary$bic[bic.for], col = "red", cex = 2, pch = 20)
+
+pred.forward <- exp(predict.regsubsets(forward.subset,test1,id=bic.for))
+csv.function(pred.forward,name="forward.csv")
+
+#No of variables
+c(adjr2.for,cp.for,bic.for)
+```
+
+#### backward subset
+
+```{r backward}
+back.subset <- regsubsets(log(SalePrice)~.,data=train1,nvmax=200,method="backward",really.big=TRUE)
+back.summary <- summary(back.subset)
+
+par(mfrow=c(2,2))
+
+# RSS plot
+plot(back.summary$rss ,xlab="Number of Variables ", ylab="RSS", type="l")
+
+# adjr2 plot
+adjr2.back <- which.max(back.summary$adjr2)
+plot(back.summary$adjr2 ,xlab="Number of Variables ", ylab="Adjusted RSq", type="l")
+points(adjr2.back,back.summary$adjr2[adjr2.back], col = "red", cex = 2, pch = 20)
+
+# Cp plot
+cp.back <- which.min(back.summary$cp)
+plot(back.summary$cp ,xlab="Number of Variables ", ylab="Cp", type="l")
+points(cp.back,back.summary$cp[cp.back], col = "red", cex = 2, pch = 20)
+
+# BIC plot
+bic.back <- which.min(back.summary$bic)
+plot(back.summary$bic ,xlab="Number of Variables ", ylab="BIC", type="l")
+points(bic.back,back.summary$bic[bic.back], col = "red", cex = 2, pch = 20)
+
+pred.back <- exp(predict.regsubsets(back.subset,test1,id=bic.back))
+csv.function(pred.back,name="back.csv")
+
+#No of variables
+c(adjr2.back,cp.back,bic.back)
+```
+
+### Shrinkage methods
+
+#### Ridge
+
+```{r ridge}
+grid <- 10^seq(10,-2,length=100)
+
+###model
+ridge.mod <- glmnet(train.X,log(train.y),alpha=0,lambda=grid)
+
+###cross-validation
+cv.ridge <- cv.glmnet(train.X,log(train.y),alpha=0,nfolds = 10)
+plot(cv.ridge)
+bestlam.ridge <- cv.ridge$lambda.min
+coef.ridge <- coef(ridge.mod,s=bestlam.ridge)
+
+### extract coef
+length(colnames(train.X)[which(coef(cv.ridge, s = bestlam.ridge) != 0)])
+
+pred.ridge <- exp(predict(ridge.mod,s=bestlam.ridge,newx=test.X,type="response"))
+csv.function(pred.ridge,name="ridge.csv")
+
