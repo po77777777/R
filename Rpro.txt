@@ -1,0 +1,10 @@
+train1.lm <- subset(train1,select=-MSSubClass)
+test1.lm <- subset(test1,select=-MSSubClass)
+lm.pred <- lm(log(SalePrice)~.,data=train1.lm)
+pred.lm <- exp(predict(lm.pred,test1.lm))
+par(mfrow=c(2,2))
+plot(lm.pred)
+
+pred.lm <- as.vector(pred.lm)
+
+csv.function(pred.lm,name="lm.csv")
