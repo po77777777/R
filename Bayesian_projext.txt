@@ -1,0 +1,163 @@
+```{r}
+#data load and urine information. 
+library(boot)
+library(coda)
+library(ggplot2)
+library(boot)
+
+
+#clean the data 
+urine1<-urine[complete.cases(urine),]
+#is.na(urine)
+
+# response is categorical so use glm. 
+fit.urin<-glm(r~.,data = urine1,family = binomial(link= "logit"))
+summary(fit.urin)
+
+#fit with reduced using full data coefficient 
+fit.urin1<-glm(r~ cond+urea+calc,data = urine1,family = binomial(link= "logit") )
+summary(fit.urin1)
+se<-c(0.045916, 0.002969,0.152481)
+sd<-se*sqrt(77)
+#get sd from three SE. 
+#0.40291126 0.02605287 1.33801534
+
+#coef(fit1)
+# qqplot and residual 
+plot(fit.urin1)
+
+#histogram of redunced data. How my data looks like? 
+hist(urine1$cond)
+hist(urine1$r)
+
+
+
+```
+
+```{r}
+
+logP=function(y,X,b,b0,varB){
+  Xb=X%*%b
+  theta=exp(Xb)/(1+exp(Xb))
+  logLik=sum( dbinom(x=y,p=theta,size=1,log=T)  )
+  logPrior=sum(  dnorm(x=b,sd=sqrt(varB),mean=b0,log=T))
+  return(logLik+logPrior)
+}
+
+
+logisticRegressionBayes=function(y,X,nIter=100000,V=.02,varB=rep(10000,ncol(X)),b0=rep(0,ncol(X))){
+  
+  ####### Arguments #######################
+  # y  a vector with 0/1 values
+  # X  incidence matrix of effects
+  # b0,varB, the prior mean and prior variance bj~N(b0[j],varB[j])
+  # V the variance of the normal distribution used to generate candidates~N(b[i-1],V)
+  # nIter: number of iterations of the sampler
+  # Details: generates samples from the posterior distribution of a logistic regression using a Metropolis algorithm
+  #########################################
+  
+  # A matrix to store samples
+  p=ncol(X)
+  B=matrix(nrow=nIter,ncol=p)
+  colnames(B)=colnames(X)
+  
+  # A vector to trace acceptance
+  accept=matrix(nrow=nIter,ncol=p,NA)
+  accept[1,]=TRUE 
+  
+  # Initialize
+  B[1,]=0
+  B[1,1]=log(mean(y)/(1-mean(y)))
+  b=B[1,]
+  for(i in 2:nIter){
+    
+    for(j in 1:p){
+      candidate=b
+      candidate[j]=rnorm(mean=b[j],sd=sqrt(V),n=1)
+      
+      logP_current=logP(y,X,b0=b0,varB=varB,b=b)
+      logP_candidate=logP(y,X,b0=b0,varB=varB,b=candidate)
+      r=min(1,exp(logP_candidate-logP_current))
+      delta=rbinom(n=1,size=1,p=r)
+      
+      accept[i,j]=delta
+      
+      if(delta==1){ b[j]=candidate[j] }
+    }
+    B[i,]=b
+    if(i%%1000==0){
+      message(" Iteration ",i)
+    }
+    
+  }
+  
+  return(list(B=B,accept=accept))
+}
+
+
+
+X = as.matrix(urine1[,5:7])
+is.numeric(X)
+
+
+################ GLM for the data #####################
+fit.urin.2<-logisticRegressionBayes(y=urine1[,1],X=as.matrix(urine1[,5:7]),nIter=3000,V=.02,varB=rep(1000,ncol(X)),b0=rep(0,ncol(X)))
+
+############___burn in with wholde data  ___##########
+var1 <- fit.urin.2$B[which(fit.urin.2$accept == 1)]
+plot(var1,type = 'o',main = "Before Burn-in")
+var2<-var1[-(1:500)]
+plot(var2,type = 'o',main = "After Burn-in")
+
+
+#########__ Burn in the data by separate columns___###
+
+
+
+#MC standard error
+sqrt(var(var_1)/(313))
+ #0.002181275
+
+var_1 <- fit.urin.2$B[,1][which(fit.urin.2$accept[,1] == 1)]
+plot(var_1,type = 'o')
+length(var_1)
+
+var_1<-var_1[-(1:50)]
+plot(var_1,type = 'o')
+sqrt(var(var_1)/(313))
+ #0.002181275
+
+var_2 <- fit.urin.2$B[,2][which(fit.urin.2$accept[,2] == 1)]
+plot(var_2,type = 'o')
+sqrt(var(var_2)/(27))
+#0.0002867297
+var_3 <- fit.urin.2$B[,3][which(fit.urin.2$accept[,3] == 1)]
+length(var_3)
+plot(var_3,type = 'o')
+var_3<-var_3[-(1:100)]
+sqrt(var(var_3)/(1277))
+#0.004257897
+
+
+SAMPLES2<-as.mcmc(var2)
+sqrt(var(SAMPLES2)/(2500))
+
+plot(SAMPLES2)
+hist(SAMPLES2)
+
+library(ggplot2)
+
+
+
+fit.urin4<-glm(r~ cond+urea+calc+ph,data = urine1,family = binomial(link= "logit") )
+summary(fit.urin4)
+plot(fit.urin4)
+fit.urin4<-glm(r~ cond+urea+calc+gravity,data = urine1,family = binomial(link= "logit") )
+summary(fit.urin4)
+plot(fit.urin4)
+
+fit.urin4<-glm(r~ cond+urea+calc+osmo,data = urine1,family = binomial(link= "logit") )
+summary(fit.urin4)
+plot(fit.urin4)
+
+```
